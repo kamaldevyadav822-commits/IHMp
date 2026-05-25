@@ -1,45 +1,23 @@
-/* =========================
-app.js
-UPDATED SINGLE-POPUP
-BIOMETRIC LOGIN LOGIC
-========================= */
-
-import { initializeApp }
-from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-
 import {
-getAuth,
 signInAnonymously
 }
 from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
-/* =========================
-FIREBASE CONFIG
-========================= */
+import {
+doc,
+setDoc,
+serverTimestamp
+}
+from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-const firebaseConfig = {
-apiKey: "AIzaSyAAYEUsRtSQb-D-xLf-NNEzlP4Ft4fUNzI",
-authDomain: "ihmp-47147.firebaseapp.com",
-projectId: "ihmp-47147",
-storageBucket: "ihmp-47147.firebasestorage.app",
-messagingSenderId: "671219535341",
-appId: "1:671219535341:web:03d277fb02808515cc2be4"
-};
-
-const app = initializeApp(firebaseConfig);
-
-const auth = getAuth(app);
-
-/* =========================
-ELEMENTS
-========================= */
+import {
+auth,
+db
+}
+from './firebase-config.js';
 
 const loginBtn =
 document.getElementById('loginBtn');
-
-/* =========================
-UTILITY
-========================= */
 
 function randomBuffer(length){
 
@@ -50,39 +28,14 @@ crypto.getRandomValues(buffer);
 return buffer;
 }
 
-/* =========================
-MAIN LOGIN FLOW
-========================= */
-
 async function biometricLogin(){
 
 try{
 
-/* =========================
-CHECK SUPPORT
-========================= */
-
-if(!window.PublicKeyCredential){
-
-alert(
-'WebAuthn / Passkeys not supported'
-);
-
-return;
-}
-
-/* =========================
-CHECK SAVED PASSKEY
-========================= */
-
 let savedId =
 localStorage.getItem('credentialId');
 
-/* =========================
-FIRST TIME LOGIN
-CREATE PASSKEY
-ONLY ONE POPUP
-========================= */
+/* FIRST LOGIN */
 
 if(!savedId){
 
@@ -99,9 +52,7 @@ name:'BioChat'
 
 user:{
 id: randomBuffer(16),
-
 name:'biochat@user.com',
-
 displayName:'BioChat User'
 },
 
@@ -113,11 +64,8 @@ alg:-7
 ],
 
 authenticatorSelection:{
-
 authenticatorAttachment:'platform',
-
 residentKey:'required',
-
 userVerification:'required'
 },
 
@@ -127,10 +75,6 @@ attestation:'none'
 }
 
 });
-
-/* =========================
-SAVE PASSKEY ID
-========================= */
 
 savedId = btoa(
 String.fromCharCode(
@@ -145,27 +89,9 @@ localStorage.setItem(
 savedId
 );
 
-/* =========================
-DIRECT LOGIN
-NO SECOND PROMPT
-========================= */
-
-await signInAnonymously(auth);
-
-/* =========================
-REDIRECT
-========================= */
-
-window.location.href =
-'chat.html';
-
-return;
 }
 
-/* =========================
-NORMAL LOGIN
-ONLY ONE VERIFY POPUP
-========================= */
+/* NORMAL LOGIN */
 
 const rawId = Uint8Array.from(
 atob(savedId),
@@ -192,15 +118,27 @@ timeout:60000
 
 });
 
-/* =========================
-FIREBASE LOGIN
-========================= */
+/* FIREBASE LOGIN */
 
+const result =
 await signInAnonymously(auth);
 
-/* =========================
-REDIRECT
-========================= */
+const user = result.user;
+
+/* CREATE REAL USER */
+
+await setDoc(
+doc(db,'users',user.uid),
+{
+uid:user.uid,
+name:'User-' + user.uid.slice(0,5),
+avatar:`https://i.pravatar.cc/150?u=${user.uid}`,
+online:true,
+createdAt:serverTimestamp(),
+lastSeen:serverTimestamp()
+},
+{merge:true}
+);
 
 window.location.href =
 'chat.html';
@@ -209,15 +147,9 @@ window.location.href =
 
 console.error(err);
 
-alert(
-'Biometric Authentication Failed'
-);
+alert('Authentication Failed');
 }
 }
-
-/* =========================
-BUTTON EVENT
-========================= */
 
 loginBtn.addEventListener(
 'click',
