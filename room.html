@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversation</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="room-layout">
+
+<div class="room-header">
+
+<button id="backBtn" class="back-btn">
+←
+</button>
+
+<img id="roomAvatar" src="https://i.pravatar.cc/101">
+
+<div>
+<h3 id="roomName">Alex</h3>
+<p>Online</p>
+</div>
+
+</div>
+
+<div class="messages" id="messages"></div>
+
+<div class="message-bar">
+
+<input
+id="messageInput"
+type="text"
+placeholder="Message..."
+autocomplete="off"
+>
+
+<button id="sendBtn">
+Send
+</button>
+
+</div>
+
+</div>
+
+<script type="module" src="room.js"></script>
+
+</body>
+</html>
