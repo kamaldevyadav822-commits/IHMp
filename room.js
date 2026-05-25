@@ -1,37 +1,35 @@
-import { initializeApp }
-from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {
+onAuthStateChanged
+}
+from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 import {
-getFirestore,
 collection,
-addDoc,
 query,
 orderBy,
 onSnapshot,
-serverTimestamp
+addDoc,
+doc,
+updateDoc,
+serverTimestamp,
+setDoc,
+getDoc
 }
 from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-const firebaseConfig = {
-apiKey: "AIzaSyAAYEUsRtSQb-D-xLf-NNEzlP4Ft4fUNzI",
-authDomain: "ihmp-47147.firebaseapp.com",
-projectId: "ihmp-47147",
-storageBucket: "ihmp-47147.firebasestorage.app",
-messagingSenderId: "671219535341",
-appId: "1:671219535341:web:03d277fb02808515cc2be4"
-};
-
-const app = initializeApp(firebaseConfig);
-
-const db = getFirestore(app);
+import {
+auth,
+db
+}
+from './firebase-config.js';
 
 const params =
-new URLSearchParams(window.location.search);
+new URLSearchParams(
+window.location.search
+);
 
-const roomUser = params.get('user');
-
-const roomName =
-document.getElementById('roomName');
+const roomId =
+params.get('id');
 
 const messagesDiv =
 document.getElementById('messages');
@@ -42,36 +40,127 @@ document.getElementById('messageInput');
 const sendBtn =
 document.getElementById('sendBtn');
 
+const roomName =
+document.getElementById('roomName');
+
 const backBtn =
 document.getElementById('backBtn');
 
-roomName.innerText = roomUser;
+const textarea =
+document.getElementById('messageInput');
 
-backBtn.addEventListener('click',()=>{
-window.history.back();
+let currentUser = null;
+
+/* AUTO GROW */
+
+textarea.addEventListener('input',()=>{
+
+textarea.style.height = 'auto';
+
+textarea.style.height =
+textarea.scrollHeight + 'px';
+
 });
+
+/* BACK */
+
+backBtn.addEventListener(
+'click',
+()=>{
+
+window.history.back();
+
+}
+);
+
+/* AUTH */
+
+onAuthStateChanged(auth,async(user)=>{
+
+if(!user){
+
+window.location.href =
+'index.html';
+
+return;
+}
+
+currentUser = user;
+
+/* ENSURE ROOM EXISTS */
+
+const roomRef =
+doc(db,'rooms',roomId);
+
+const roomSnap =
+await getDoc(roomRef);
+
+if(!roomSnap.exists()){
+
+await setDoc(roomRef,{
+name:'Conversation',
+lastMessage:'',
+updatedAt:serverTimestamp()
+});
+
+}
+
+listenMessages();
+
+});
+
+/* SEND MESSAGE */
 
 async function sendMessage(){
 
-const text = messageInput.value.trim();
+const text =
+messageInput.value.trim();
 
 if(text === '') return;
 
 await addDoc(
-collection(db,'messages'),
+collection(
+db,
+'rooms',
+roomId,
+'messages'
+),
 {
-room: roomUser,
+senderId:currentUser.uid,
 text,
-createdAt: serverTimestamp(),
-user:'me'
+type:'text',
+seen:false,
+createdAt:serverTimestamp()
+}
+);
+
+/* UPDATE ROOM */
+
+await updateDoc(
+doc(db,'rooms',roomId),
+{
+lastMessage:text,
+updatedAt:serverTimestamp()
 }
 );
 
 messageInput.value = '';
+
+textarea.style.height = '44px';
+
 }
 
+/* LISTEN */
+
+function listenMessages(){
+
 const q = query(
-collection(db,'messages'),
+collection(
+db,
+'rooms',
+roomId,
+'messages'
+),
 orderBy('createdAt')
 );
 
@@ -79,22 +168,22 @@ onSnapshot(q,(snapshot)=>{
 
 messagesDiv.innerHTML = '';
 
-snapshot.forEach((doc)=>{
+snapshot.forEach((docSnap)=>{
 
-const data = doc.data();
-
-if(data.room !== roomUser) return;
+const msg =
+docSnap.data();
 
 const div =
 document.createElement('div');
 
-if(data.user === 'me'){
-div.className = 'message mine';
-}else{
-div.className = 'message other';
-}
+div.className =
+msg.senderId === currentUser.uid
+? 'message mine'
+: 'message other';
 
-div.innerText = data.text;
+div.innerHTML = `
+${msg.text}
+`;
 
 messagesDiv.appendChild(div);
 
@@ -105,6 +194,10 @@ messagesDiv.scrollHeight;
 
 });
 
+}
+
+/* EVENTS */
+
 sendBtn.addEventListener(
 'click',
 sendMessage
@@ -113,8 +206,13 @@ sendMessage
 messageInput.addEventListener(
 'keypress',
 (e)=>{
+
 if(e.key === 'Enter'){
+
+e.preventDefault();
+
 sendMessage();
+
 }
 }
 );
